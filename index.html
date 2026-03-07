@@ -57,6 +57,7 @@
   .month-nav { display: flex; align-items: center; gap: 12px; margin-top: 20px; width: 100%; }
   .month-nav button:not(.btn-stats) { background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
   .month-nav button:not(.btn-stats):hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btns { display: flex; gap: 8px; margin-top: 12px; width: 100%; }
   #monthLabel { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 600; min-width: 160px; text-align: center; }
 
   /* STATS */
@@ -376,8 +377,10 @@
       <button id="prevMonth">‹</button>
       <div id="monthLabel"></div>
       <button id="nextMonth">›</button>
-      <button class="btn-stats btn-cal" onclick="openCalendar()">📅 Календарь</button>
-      <button class="btn-stats" onclick="openStats()">📊 Статистика</button>
+    </div>
+    <div class="nav-btns">
+      <button class="btn-stats btn-cal" style="flex:1" onclick="openCalendar()">📅 Календарь</button>
+      <button class="btn-stats" style="flex:1" onclick="openStats()">📊 Статистика</button>
     </div>
   </header>
 
