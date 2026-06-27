@@ -303,7 +303,7 @@
 
   .section-label { font-family: 'Unbounded', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin: 20px 0 12px; }
 
-  .bar-chart { display: flex; gap: 6px; align-items: flex-end; height: 100px; margin-bottom: 8px; }
+  .bar-chart { display: flex; gap: 6px; align-items: flex-end; height: 130px; margin-bottom: 8px; }
   .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
   .bar-fill { width: 100%; border-radius: 4px 4px 0 0; min-height: 3px; transition: height 0.4s; }
   .bar-lbl { font-size: 10px; color: var(--muted); text-align: center; }
@@ -398,6 +398,13 @@
       <div class="stat-label">Заработок</div>
       <div class="stat-value" id="statEarnings">0 ₽</div>
       <div class="stat-sub" id="statRate">—</div>
+      <div style="margin-top:8px;border-top:1px solid rgba(255,209,102,0.2);padding-top:8px">
+        <div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Факт. зарплата</div>
+        <input type="number" id="actualSalary" placeholder="0 ₽" min="0" step="100"
+          style="background:rgba(255,209,102,0.08);border:1px solid rgba(255,209,102,0.25);border-radius:6px;color:var(--accent3);font-family:'Unbounded',sans-serif;font-size:11px;font-weight:600;padding:4px 8px;width:100%;outline:none;"
+          oninput="updateActualSalary()" onfocus="this.style.borderColor='var(--accent3)'" onblur="this.style.borderColor='rgba(255,209,102,0.25)'">
+        <div id="salaryDiff" style="font-size:10px;margin-top:4px;color:var(--muted)"></div>
+      </div>
     </div>
     <div class="stat-card red">
       <div class="stat-label">Переработки</div>
@@ -782,12 +789,20 @@ function calcEarnings(shiftList) {
 }
 
 function barChart(items, labelKey, valueKey, color) {
+  const values = items.map(i => i[valueKey]).filter(v => v > 0);
   const max = Math.max(...items.map(i => i[valueKey]), 1);
+  // Для заработка — начинаем шкалу от 90% минимального значения, чтобы разница была видна
+  const isEarnings = valueKey === 'earnings';
+  const min = isEarnings && values.length > 1 ? Math.min(...values) * 0.85 : 0;
+  const range = max - min || 1;
+
   return `<div class="bar-chart">` +
     items.map(item => {
-      const pct = (item[valueKey] / max * 100).toFixed(1);
+      const v = item[valueKey];
+      const pct = v > 0 ? Math.max(4, ((v - min) / range * 100)).toFixed(1) : 0;
+      const label = v > 0 ? (isEarnings ? formatMoney(v) : v.toFixed(1)+'ч') : '';
       return `<div class="bar-col">
-        <div class="bar-val">${item[valueKey] > 0 ? (valueKey === 'earnings' ? formatMoney(item[valueKey]) : item[valueKey].toFixed(1)+'ч') : ''}</div>
+        <div class="bar-val">${label}</div>
         <div class="bar-fill" style="height:${pct}%;background:${color}"></div>
         <div class="bar-lbl">${item[labelKey]}</div>
       </div>`;
@@ -800,9 +815,13 @@ function buildStats() {
 
   // --- WEEK ---
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const dowNow = (now.getDay() + 6) % 7; // 0=Пн, 6=Вс
+  startOfWeek.setDate(now.getDate() - dowNow);
   startOfWeek.setHours(0,0,0,0);
-  const weekShifts = shifts.filter(s => new Date(s.date + 'T12:00:00') >= startOfWeek);
+  const weekShifts = shifts.filter(s => {
+    const d = new Date(s.date + 'T00:00:00');
+    return d >= startOfWeek;
+  });
   const weekStats = calcEarnings(weekShifts);
   const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
   const weekDayData = days.map((lbl, i) => {
@@ -832,7 +851,7 @@ function buildStats() {
   });
   const monthStats = calcEarnings(monthShifts);
   const monthlyNorm = parseFloat(document.getElementById('monthlyNorm').value) || 160;
-  const progress = Math.min(100, (monthStats.hours / monthlyNorm * 100)).toFixed(1);
+  const progress = (monthStats.hours / monthlyNorm * 100).toFixed(1);
 
   // by weeks
   const weeklyData = [1,2,3,4,5].map(w => {
@@ -858,9 +877,10 @@ function buildStats() {
 
   const ringR = 54;
   const ringCirc = 2 * Math.PI * ringR;
+  const isOver = parseFloat(progress) > 100;
   const ringPct = Math.min(parseFloat(progress) / 100, 1);
   const ringDash = ringCirc * ringPct;
-  const ringColor = ringPct >= 1 ? 'var(--accent)' : ringPct >= 0.6 ? 'var(--accent3)' : 'var(--accent2)';
+  const ringColor = isOver ? 'var(--accent)' : ringPct >= 0.6 ? 'var(--accent3)' : 'var(--accent2)';
 
   document.getElementById('panel-month').innerHTML = `
     <div class="stat-grid">
@@ -880,13 +900,13 @@ function buildStats() {
           stroke-linecap="round"
           style="transition:stroke-dasharray 0.6s ease"/>
         <text x="65" y="60" text-anchor="middle" fill="white" font-family="Unbounded,sans-serif" font-size="18" font-weight="700">${progress}%</text>
-        <text x="65" y="78" text-anchor="middle" fill="#6b7494" font-family="Golos Text,sans-serif" font-size="10">${ringPct >= 1 ? '✓ норма' : 'из нормы'}</text>
+        <text x="65" y="78" text-anchor="middle" fill="#6b7494" font-family="Golos Text,sans-serif" font-size="10">${isOver ? '🔥 сверх нормы' : ringPct >= 1 ? '✓ норма' : 'из нормы'}</text>
       </svg>
       <div style="flex:1">
         <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Отработано</div>
         <div style="font-family:Unbounded,sans-serif;font-size:20px;font-weight:700;color:${ringColor}">${monthStats.hours.toFixed(1)} ч</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:10px;margin-bottom:6px">${ringPct >= 1 ? 'Переработка' : 'Осталось'}</div>
-        <div style="font-family:Unbounded,sans-serif;font-size:16px;font-weight:600;color:var(--text)">${ringPct >= 1 ? '+' + monthStats.overtime.toFixed(1) + ' ч' : (monthlyNorm - monthStats.hours).toFixed(1) + ' ч'}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px;margin-bottom:6px">${isOver ? 'Переработка' : ringPct >= 1 ? 'Переработка' : 'Осталось'}</div>
+        <div style="font-family:Unbounded,sans-serif;font-size:16px;font-weight:600;color:var(--text)">${isOver || ringPct >= 1 ? '+' + monthStats.overtime.toFixed(1) + ' ч' : (monthlyNorm - monthStats.hours).toFixed(1) + ' ч'}</div>
       </div>
     </div>
 
@@ -898,16 +918,39 @@ function buildStats() {
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">
         ${Array(firstMon).fill('<div></div>').join('')}
         ${heatDays.map(({d, h, hasBonus}) => {
-          const alpha = h > 0 ? 0.2 + 0.8 * (h / maxH) : 0;
-          const bg = h > 0 ? `rgba(79,255,176,${alpha.toFixed(2)})` : 'var(--surface2)';
-          const border = hasBonus ? '1px solid #60a5fa' : '1px solid transparent';
-          return `<div title="${d} — ${h}ч" style="aspect-ratio:1;border-radius:4px;background:${bg};border:${border};display:flex;align-items:center;justify-content:center;font-size:9px;color:${h>0?'rgba(255,255,255,0.7)':'var(--border)'};">${d}</div>`;
+          let bg, textColor;
+          if (h === 0) {
+            bg = 'var(--surface2)';
+            textColor = 'var(--border)';
+          } else {
+            // Градиент по реальным часам: до 6ч = красный, 6-9ч = жёлтый, 9+ = зелёный
+            const maxReal = 12; // полнодневная смена
+            const pct = Math.min(h / maxReal, 1);
+            let r, g, b;
+            if (pct < 0.5) {
+              // красный → жёлтый (0–6ч)
+              r = 255;
+              g = Math.round(80 + (209 - 80) * (pct / 0.5));
+              b = 60;
+            } else {
+              // жёлтый → зелёный (6–12ч)
+              r = Math.round(255 - (255 - 79) * ((pct - 0.5) / 0.5));
+              g = Math.round(209 + (255 - 209) * ((pct - 0.5) / 0.5));
+              b = Math.round(60 + (176 - 60) * ((pct - 0.5) / 0.5));
+            }
+            bg = `rgba(${r},${g},${b},0.8)`;
+            textColor = 'rgba(255,255,255,0.9)';
+          }
+          const border = hasBonus ? '2px solid #60a5fa' : '1px solid transparent';
+          return `<div title="${d} — ${h}ч" style="aspect-ratio:1;border-radius:4px;background:${bg};border:${border};display:flex;align-items:center;justify-content:center;font-size:9px;color:${textColor};">${d}</div>`;
         }).join('')}
       </div>
-      <div style="display:flex;gap:12px;margin-top:8px;align-items:center">
+      <div style="display:flex;gap:12px;margin-top:8px;align-items:center;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1px solid var(--border)"></div><span style="font-size:10px;color:var(--muted)">нет смены</span></div>
-        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:rgba(79,255,176,0.7)"></div><span style="font-size:10px;color:var(--muted)">смена</span></div>
-        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1px solid #60a5fa"></div><span style="font-size:10px;color:var(--muted)">+ премия</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:rgba(255,107,50,0.75)"></div><span style="font-size:10px;color:var(--muted)">мало часов</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:rgba(255,209,50,0.75)"></div><span style="font-size:10px;color:var(--muted)">средне</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:rgba(79,255,176,0.75)"></div><span style="font-size:10px;color:var(--muted)">много часов</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:var(--surface2);border:2px solid #60a5fa"></div><span style="font-size:10px;color:var(--muted)">+ премия</span></div>
       </div>
     </div>
 
@@ -1043,6 +1086,7 @@ function render() {
   }
 
   // Chart
+  loadActualSalary();
 }
 
 function showToast(msg, color) {
@@ -1210,6 +1254,39 @@ function importJSON(event) {
   };
   reader.readAsText(file);
   event.target.value = '';
+}
+
+function updateActualSalary() {
+  const actual = parseFloat(document.getElementById('actualSalary').value) || 0;
+  const calcText = document.getElementById('statEarnings').textContent;
+  const calc = parseFloat(calcText.replace(/[^\d]/g, '')) || 0;
+  const diff = actual - calc;
+  const diffEl = document.getElementById('salaryDiff');
+
+  // Сохраняем по ключу месяц+год
+  const key = 'actualSalary_' + viewYear + '_' + viewMonth;
+  localStorage.setItem(key, actual);
+
+  if (actual === 0) {
+    diffEl.textContent = '';
+    return;
+  }
+  const sign = diff >= 0 ? '+' : '';
+  diffEl.textContent = sign + Math.round(diff).toLocaleString('ru-RU') + ' ₽ к расчёту';
+  diffEl.style.color = diff >= 0 ? 'var(--accent)' : 'var(--accent2)';
+}
+
+function loadActualSalary() {
+  const key = 'actualSalary_' + viewYear + '_' + viewMonth;
+  const saved = localStorage.getItem(key);
+  const input = document.getElementById('actualSalary');
+  if (saved && parseFloat(saved) > 0) {
+    input.value = saved;
+    updateActualSalary();
+  } else {
+    input.value = '';
+    document.getElementById('salaryDiff').textContent = '';
+  }
 }
 
 function toggleHistory() {
