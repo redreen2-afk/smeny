@@ -827,7 +827,7 @@ function buildStats() {
   const weekDayData = days.map((lbl, i) => {
     const d = new Date(startOfWeek);
     d.setDate(startOfWeek.getDate() + i);
-    const ds = d.toISOString().slice(0,10);
+    const ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     const dayShifts = shifts.filter(s => s.date === ds);
     return { label: lbl, hours: dayShifts.reduce((a,s) => a + s.hours, 0), earnings: dayShifts.reduce((a,s) => a + s.hours, 0) * rate };
   });
@@ -882,6 +882,10 @@ function buildStats() {
   const ringDash = ringCirc * ringPct;
   const ringColor = isOver ? 'var(--accent)' : ringPct >= 0.6 ? 'var(--accent3)' : 'var(--accent2)';
 
+  // Переработка — второй круг красным
+  const overPct = isOver ? Math.min((parseFloat(progress) - 100) / 100, 1) : 0;
+  const overDash = ringCirc * overPct;
+
   document.getElementById('panel-month').innerHTML = `
     <div class="stat-grid">
       <div class="stat-block"><div class="stat-block-label">Смен</div><div class="stat-block-value">${monthStats.count}</div><div class="stat-block-sub">${MONTHS[viewMonth]}</div></div>
@@ -899,6 +903,11 @@ function buildStats() {
           stroke-dashoffset="${ringCirc * 0.25}"
           stroke-linecap="round"
           style="transition:stroke-dasharray 0.6s ease"/>
+        ${isOver ? `<circle cx="65" cy="65" r="${ringR}" fill="none" stroke="var(--accent2)" stroke-width="10"
+          stroke-dasharray="${overDash} ${ringCirc}"
+          stroke-dashoffset="${ringCirc * 0.25}"
+          stroke-linecap="round"
+          style="transition:stroke-dasharray 0.6s ease"/>` : ''}
         <text x="65" y="60" text-anchor="middle" fill="white" font-family="Unbounded,sans-serif" font-size="18" font-weight="700">${progress}%</text>
         <text x="65" y="78" text-anchor="middle" fill="#6b7494" font-family="Golos Text,sans-serif" font-size="10">${isOver ? '🔥 сверх нормы' : ringPct >= 1 ? '✓ норма' : 'из нормы'}</text>
       </svg>
