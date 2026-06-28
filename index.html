@@ -544,7 +544,7 @@
   <div class="toast" id="toast"></div>
 
   <div style="text-align:center;padding:24px 0 8px;font-family:'Unbounded',sans-serif;font-size:10px;color:var(--muted);letter-spacing:0.1em;opacity:0.5">
-    v1.1
+    v1.2
   </div>
 
   <!-- BACKUP HINT MODAL -->
@@ -906,8 +906,9 @@ function buildStats() {
         <circle cx="65" cy="65" r="${ringR}" fill="none" stroke="var(--accent)" stroke-width="10"/>
         <circle cx="65" cy="65" r="${ringR}" fill="none" stroke="var(--accent2)" stroke-width="7"
           stroke-dasharray="${overDash} ${ringCirc}"
-          stroke-dashoffset="${ringCirc * 0.25}"
+          stroke-dashoffset="116"
           stroke-linecap="round"
+          transform="scale(-1,1) translate(-130,0)"
           style="transition:stroke-dasharray 0.6s ease"/>
         ` : `
         <circle cx="65" cy="65" r="${ringR}" fill="none" stroke="${ringColor}" stroke-width="10"
