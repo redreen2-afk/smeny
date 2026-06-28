@@ -424,7 +424,6 @@
 
     <div style="display:flex;gap:8px;margin-bottom:0">
       <button class="settings-toggle" style="margin-bottom:0;flex:1" onclick="toggleSettings('pay')">⚙ Оплата</button>
-      <button class="settings-toggle" style="margin-bottom:0;flex:1" onclick="toggleSettings('shift')">🕐 Смены</button>
     </div>
     <div style="height:12px"></div>
     <div class="settings-panel" id="settingsPanel-pay">
@@ -446,67 +445,14 @@
       </div>
     </div>
 
-    <div class="settings-panel" id="settingsPanel-shift">
-      <div class="form-row">
-        <div class="field">
-          <label>☀️ Дневная — часов</label>
-          <input type="number" id="dayHours" value="9" min="0.5" max="24" step="0.5" onchange="updateShiftType('day', this.value);saveSettings()">
-        </div>
-        <div class="field">
-          <label>Время (для справки)</label>
-          <input type="text" id="dayTime" value="06:00 – 15:00" placeholder="например 06:00 – 15:00" style="font-size:13px" onchange="saveSettings()">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="field">
-          <label>🌙 Ночная — часов</label>
-          <input type="number" id="nightHours" value="9" min="0.5" max="24" step="0.5" onchange="updateShiftType('night', this.value);saveSettings()">
-        </div>
-        <div class="field">
-          <label>Время (для справки)</label>
-          <input type="text" id="nightTime" value="15:00 – 00:00" placeholder="например 15:00 – 00:00" style="font-size:13px" onchange="saveSettings()">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="field">
-          <label>⏰ Полнодневная — часов</label>
-          <input type="number" id="fullHours" value="12" min="1" max="24" step="0.5" onchange="updateShiftType('full', this.value);saveSettings()">
-        </div>
-        <div class="field">
-          <label>Время (для справки)</label>
-          <input type="text" id="fullTime" value="08:00 – 20:00" placeholder="например 08:00 – 08:00" style="font-size:13px" onchange="saveSettings()">
-        </div>
-      </div>
-    </div>
-
     <div class="form-row">
       <div class="field">
         <label>Дата</label>
         <input type="date" id="shiftDate">
       </div>
       <div class="field">
-        <label>Тип смены</label>
-        <select id="shiftType">
-          <option value="day">☀️ Дневная</option>
-          <option value="night">🌙 Ночная</option>
-          <option value="full">⏰ Полнодневная</option>
-          <option value="custom">✏️ Своя</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="form-row three" id="timeRow" style="display:none">
-      <div class="field">
-        <label>Начало</label>
-        <input type="time" id="startTime" value="08:00">
-      </div>
-      <div class="field">
-        <label>Конец</label>
-        <input type="time" id="endTime" value="20:00">
-      </div>
-      <div class="field">
-        <label>Часов</label>
-        <input type="number" id="hoursManual" value="12" min="0.5" max="24" step="0.5" readonly>
+        <label>Продолжительность (часов)</label>
+        <input type="number" id="shiftHours" value="9" min="0.5" max="24" step="0.5" placeholder="9">
       </div>
     </div>
 
@@ -544,7 +490,7 @@
   <div class="toast" id="toast"></div>
 
   <div style="text-align:center;padding:24px 0 8px;font-family:'Unbounded',sans-serif;font-size:10px;color:var(--muted);letter-spacing:0.1em;opacity:0.5">
-    v1.3
+    v1.4
   </div>
 
   <!-- BACKUP HINT MODAL -->
@@ -612,13 +558,6 @@
 const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь',
                 'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const DAYS_RU = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
-const SHIFT_TYPES = {
-  day:    { label: '☀️ Дневная', hours: 9, color: '#ffd166' },
-  night:  { label: '🌙 Ночная',  hours: 9, color: '#a78bfa' },
-  full:   { label: '⏰ Полнодневная', hours: 12, color: '#4fffb0' },
-  custom: { label: '✏️ Своя',    hours: null, color: '#60a5fa' }
-};
-
 let currentDate = new Date();
 let viewYear = currentDate.getFullYear();
 let viewMonth = currentDate.getMonth();
@@ -636,12 +575,6 @@ function saveSettings() {
     hourlyRate: document.getElementById('hourlyRate').value,
     monthlyNorm: document.getElementById('monthlyNorm').value,
     overtimeRate: document.getElementById('overtimeRate').value,
-    dayHours: document.getElementById('dayHours').value,
-    nightHours: document.getElementById('nightHours').value,
-    fullHours: document.getElementById('fullHours').value,
-    dayTime: document.getElementById('dayTime').value,
-    nightTime: document.getElementById('nightTime').value,
-    fullTime: document.getElementById('fullTime').value,
   };
   localStorage.setItem('settings_v1', JSON.stringify(settings));
 }
@@ -651,12 +584,6 @@ function loadSettings() {
   if (s.hourlyRate) document.getElementById('hourlyRate').value = s.hourlyRate;
   if (s.monthlyNorm) document.getElementById('monthlyNorm').value = s.monthlyNorm;
   if (s.overtimeRate) document.getElementById('overtimeRate').value = s.overtimeRate;
-  if (s.dayHours) { document.getElementById('dayHours').value = s.dayHours; SHIFT_TYPES.day.hours = parseFloat(s.dayHours); }
-  if (s.nightHours) { document.getElementById('nightHours').value = s.nightHours; SHIFT_TYPES.night.hours = parseFloat(s.nightHours); }
-  if (s.fullHours) { document.getElementById('fullHours').value = s.fullHours; SHIFT_TYPES.full.hours = parseFloat(s.fullHours); }
-  if (s.dayTime) document.getElementById('dayTime').value = s.dayTime;
-  if (s.nightTime) document.getElementById('nightTime').value = s.nightTime;
-  if (s.fullTime) document.getElementById('fullTime').value = s.fullTime;
 }
 
 // Init date input to today
@@ -665,65 +592,26 @@ document.getElementById('shiftDate').value = currentDate.toISOString().slice(0,1
 // Load saved settings
 loadSettings();
 
-// Shift type change
-document.getElementById('shiftType').addEventListener('change', function() {
-  const timeRow = document.getElementById('timeRow');
-  if (this.value === 'custom') {
-    timeRow.style.display = 'grid';
-    recalcCustomHours();
-  } else {
-    timeRow.style.display = 'none';
-  }
-});
-
-document.getElementById('startTime').addEventListener('change', recalcCustomHours);
-document.getElementById('endTime').addEventListener('change', recalcCustomHours);
-
-function recalcCustomHours() {
-  const start = document.getElementById('startTime').value;
-  const end = document.getElementById('endTime').value;
-  if (!start || !end) return;
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  let mins = (eh * 60 + em) - (sh * 60 + sm);
-  if (mins < 0) mins += 24 * 60;
-  document.getElementById('hoursManual').value = (mins / 60).toFixed(1);
-}
-
 function toggleSettings(type) {
   const payPanel = document.getElementById('settingsPanel-pay');
-  const shiftPanel = document.getElementById('settingsPanel-shift');
-  if (type === 'pay') {
-    payPanel.classList.toggle('open');
-    shiftPanel.classList.remove('open');
-  } else {
-    shiftPanel.classList.toggle('open');
-    payPanel.classList.remove('open');
-  }
-}
-
-function updateShiftType(type, hours) {
-  SHIFT_TYPES[type].hours = parseFloat(hours) || SHIFT_TYPES[type].hours;
-  render();
+  payPanel.classList.toggle('open');
 }
 
 function addShift() {
   const date = document.getElementById('shiftDate').value;
   if (!date) { alert('Укажи дату!'); return; }
 
-  const type = document.getElementById('shiftType').value;
-  const typeInfo = SHIFT_TYPES[type];
-  let hours = typeInfo.hours;
-  if (type === 'custom') hours = parseFloat(document.getElementById('hoursManual').value) || 0;
+  const hours = parseFloat(document.getElementById('shiftHours').value) || 0;
+  if (hours <= 0) { alert('Укажи количество часов!'); return; }
 
   const shift = {
     id: Date.now(),
     date,
-    type,
+    type: 'custom',
     hours,
     note: document.getElementById('shiftNote').value.trim(),
     bonus: parseFloat(document.getElementById('shiftBonus').value) || 0,
-    color: typeInfo.color
+    color: '#4fffb0'
   };
 
   shifts.push(shift);
@@ -1071,15 +959,13 @@ function render() {
       const d = new Date(s.date + 'T12:00:00');
       const dayName = DAYS_RU[d.getDay()];
       const dateStr = d.getDate() + ' ' + MONTHS[d.getMonth()].toLowerCase() + ', ' + dayName;
-      const typeInfo = SHIFT_TYPES[s.type];
       const info = earningsMap[s.id] || { earnings: 0, overtime: 0 };
       return `
         <div class="shift-item">
-          <div class="shift-stripe" style="background:${s.color}"></div>
+          <div class="shift-stripe" style="background:#4fffb0"></div>
           <div class="shift-info">
             <div class="shift-date">${dateStr}</div>
             <div class="shift-meta">
-              <span class="shift-tag">${typeInfo.label}</span>
               <span>${s.hours} ч</span>
               ${info.overtime > 0 ? `<span class="shift-tag overtime">+${info.overtime.toFixed(1)}ч переработка</span>` : ''}
             </div>
@@ -1167,10 +1053,9 @@ function buildExportRows() {
   });
 
   return [...shifts].sort((a,b) => a.date.localeCompare(b.date)).map(s => {
-    const type = SHIFT_TYPES[s.type]?.label.replace(/[^\wа-яА-ЯёЁ ]/g,'').trim() || s.type;
     return {
       date: s.date,
-      type,
+      type: 'Смена',
       hours: s.hours,
       earnings: Math.round(earningsMap[s.id] || 0),
       bonus: s.bonus || 0,
