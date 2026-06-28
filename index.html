@@ -399,6 +399,13 @@
       <div class="stat-value" id="statEarnings">0 ₽</div>
       <div class="stat-sub" id="statRate">—</div>
       <div style="margin-top:8px;border-top:1px solid rgba(255,209,102,0.2);padding-top:8px">
+        <div style="display:flex;align-items:center;gap:6px;cursor:pointer" onclick="toggleQuarterBonus()">
+          <div id="quarterCheck" style="width:16px;height:16px;border-radius:4px;border:1.5px solid rgba(255,209,102,0.4);background:transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s"></div>
+          <div style="font-size:10px;color:var(--muted)">Квартальная премия</div>
+          <div id="quarterAmount" style="font-size:10px;color:var(--accent3);margin-left:auto;font-family:'Unbounded',sans-serif;font-weight:600"></div>
+        </div>
+      </div>
+      <div style="margin-top:8px;border-top:1px solid rgba(255,209,102,0.2);padding-top:8px">
         <div style="font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px">Факт. зарплата</div>
         <input type="number" id="actualSalary" placeholder="0 ₽" min="0" step="100"
           style="background:rgba(255,209,102,0.08);border:1px solid rgba(255,209,102,0.25);border-radius:6px;color:var(--accent3);font-family:'Unbounded',sans-serif;font-size:11px;font-weight:600;padding:4px 8px;width:100%;outline:none;"
@@ -441,6 +448,10 @@
         <div class="field">
           <label>Коэф. переработки</label>
           <input type="number" id="overtimeRate" value="1.5" min="1" step="0.1" onchange="saveSettings();render()">
+        </div>
+        <div class="field">
+          <label>Квартальная премия (₽)</label>
+          <input type="number" id="quarterBonusAmount" value="50000" min="0" step="1000" onchange="saveSettings();updateQuarterDisplay()">
         </div>
       </div>
     </div>
@@ -490,7 +501,7 @@
   <div class="toast" id="toast"></div>
 
   <div style="text-align:center;padding:24px 0 8px;font-family:'Unbounded',sans-serif;font-size:10px;color:var(--muted);letter-spacing:0.1em;opacity:0.5">
-    v1.4
+    v1.6
   </div>
 
   <!-- BACKUP HINT MODAL -->
@@ -575,6 +586,7 @@ function saveSettings() {
     hourlyRate: document.getElementById('hourlyRate').value,
     monthlyNorm: document.getElementById('monthlyNorm').value,
     overtimeRate: document.getElementById('overtimeRate').value,
+    quarterBonusAmount: document.getElementById('quarterBonusAmount').value,
   };
   localStorage.setItem('settings_v1', JSON.stringify(settings));
 }
@@ -584,6 +596,7 @@ function loadSettings() {
   if (s.hourlyRate) document.getElementById('hourlyRate').value = s.hourlyRate;
   if (s.monthlyNorm) document.getElementById('monthlyNorm').value = s.monthlyNorm;
   if (s.overtimeRate) document.getElementById('overtimeRate').value = s.overtimeRate;
+  if (s.quarterBonusAmount) document.getElementById('quarterBonusAmount').value = s.quarterBonusAmount;
 }
 
 // Init date input to today
@@ -704,6 +717,7 @@ function barChart(items, labelKey, valueKey, color) {
 function buildStats() {
   const now = new Date();
   const rate = parseFloat(document.getElementById('hourlyRate').value) || 0;
+  const quarterBonus = getQuarterBonus();
 
   // --- WEEK ---
   const startOfWeek = new Date(now);
@@ -782,7 +796,7 @@ function buildStats() {
     <div class="stat-grid">
       <div class="stat-block"><div class="stat-block-label">Смен</div><div class="stat-block-value">${monthStats.count}</div><div class="stat-block-sub">${MONTHS[viewMonth]}</div></div>
       <div class="stat-block"><div class="stat-block-label">Часов</div><div class="stat-block-value">${monthStats.hours.toFixed(1)}</div><div class="stat-block-sub">из ${monthlyNorm} нормы</div></div>
-      <div class="stat-block"><div class="stat-block-label">Заработок</div><div class="stat-block-value" style="font-size:15px">${formatMoney(monthStats.earnings)}</div><div class="stat-block-sub">${monthStats.overtime > 0 ? '+' + monthStats.overtime.toFixed(1) + 'ч переработки' : 'без переработок'}</div></div>
+      <div class="stat-block"><div class="stat-block-label">${quarterBonus > 0 ? 'Заработок с <span style="color:var(--accent3)">премией</span>' : 'Заработок'}</div><div class="stat-block-value" style="font-size:15px">${formatMoney(monthStats.earnings + quarterBonus)}</div><div class="stat-block-sub">${monthStats.overtime > 0 ? '+' + monthStats.overtime.toFixed(1) + 'ч переработки' : 'без переработок'}${quarterBonus > 0 ? ' · 🏆 +' + formatMoney(quarterBonus) : ''}</div></div>
       <div class="stat-block"><div class="stat-block-label">💵 Премия наличными</div><div class="stat-block-value" style="color:#60a5fa;font-size:15px">${formatMoney(monthShifts.reduce((a,s) => a+(s.bonus||0), 0))}</div><div class="stat-block-sub">${monthShifts.filter(s=>s.bonus>0).length} смен с премией</div></div>
     </div>
 
@@ -936,9 +950,12 @@ function render() {
   const totalBonus = ms.reduce((a, s) => a + (s.bonus || 0), 0);
   const bonusCount = ms.filter(s => s.bonus > 0).length;
 
+  const quarterBonus = getQuarterBonus();
+  const totalWithQuarter = totalEarnings + quarterBonus;
+
   document.getElementById('statShifts').textContent = totalShifts;
   document.getElementById('statHours').textContent = totalHours.toFixed(1) + ' ч';
-  document.getElementById('statEarnings').textContent = formatMoney(totalEarnings);
+  document.getElementById('statEarnings').textContent = formatMoney(totalWithQuarter);
   document.getElementById('statRate').textContent = hoursLeft > 0 ? 'до нормы: ' + hoursLeft.toFixed(1) + ' ч' : '✓ норма выполнена';
   document.getElementById('statOvertime').textContent = totalMonthlyOvertime.toFixed(1) + ' ч';
   document.getElementById('statOvertimeEarn').textContent = '+' + formatMoney(overtimeEarnings);
@@ -993,6 +1010,7 @@ function render() {
   }
 
   // Chart
+  updateQuarterDisplay();
   loadActualSalary();
 }
 
@@ -1193,6 +1211,37 @@ function loadActualSalary() {
     input.value = '';
     document.getElementById('salaryDiff').textContent = '';
   }
+}
+
+function toggleQuarterBonus() {
+  const key = 'quarterBonus_' + viewYear + '_' + viewMonth;
+  const current = localStorage.getItem(key) === 'true';
+  localStorage.setItem(key, !current);
+  updateQuarterDisplay();
+  render();
+}
+
+function updateQuarterDisplay() {
+  const key = 'quarterBonus_' + viewYear + '_' + viewMonth;
+  const active = localStorage.getItem(key) === 'true';
+  const amount = parseFloat(document.getElementById('quarterBonusAmount').value) || 50000;
+  const check = document.getElementById('quarterCheck');
+  const amountEl = document.getElementById('quarterAmount');
+  if (check) {
+    check.style.background = active ? 'var(--accent3)' : 'transparent';
+    check.style.borderColor = active ? 'var(--accent3)' : 'rgba(255,209,102,0.4)';
+    check.innerHTML = active ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#0d0f14" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>' : '';
+  }
+  if (amountEl) {
+    amountEl.textContent = active ? '+' + formatMoney(amount) : '';
+  }
+}
+
+function getQuarterBonus() {
+  const key = 'quarterBonus_' + viewYear + '_' + viewMonth;
+  const active = localStorage.getItem(key) === 'true';
+  const amount = parseFloat(document.getElementById('quarterBonusAmount').value) || 50000;
+  return active ? amount : 0;
 }
 
 function toggleHistory() {
